@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>Comentality</id>
+    <version>1.0.0</version>
+    <title>Comentality</title>
+    <authors>@skfd</authors>
+    <owners></owners>
+    <description>
+      Drop in plugin helpers for Dynamics CRM. Work in progress.
+    </description>
+    <releaseNotes>
+    </releaseNotes>
+    <summary>
+      Drop in plugin helpers for Dynamics CRM. Strong typing FTW.
+    </summary>
+    <language>en-US</language>
+    <projectUrl>https://github.com/comentality/Comentality</projectUrl>
+    <iconUrl>https://nuget.org/Content/Images/packageDefaultIcon-50x50.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <licenseUrl>https://github.com/comentality/Comentality/blob/master/LICENSE</licenseUrl>
+    <copyright>Copyright Comentality 2015</copyright>
+    <dependencies>
+        <group targetFramework="net45">
+          <dependency id="Microsoft.CrmSdk.CoreAssemblies" version="7.1.1" />
+        </group>
+    </dependencies>
+    <frameworkAssemblies>
+      <frameworkAssembly assemblyName="System" targetFramework="net45" />
+    </frameworkAssemblies>
+    <references></references>
+    <tags>dynamics crm, crm, microsoft dynamics crm, xrm</tags>
+  </metadata>
+  <files>
+    <file src="content\" target="content" />
+  </files>
+</package>
