@@ -1,28 +1,28 @@
 ﻿using System;
+using Comentality.content.Comentality;
 using CrmEarlyBound;
 using Microsoft.Xrm.Sdk;
 
 namespace Comentality
 {
-    using Exceptions;
-
     public class PluginHelper
     {
-        private IServiceProvider serviceProvider;
-        private IPluginExecutionContext context;
+        private readonly IServiceProvider serviceProvider;
+        public readonly IPluginExecutionContext PluginExecutionContext;
         private Entity target;
         private CrmServices services;
-        private readonly string defaultImageName = "Image";
+        private static string DefaultImageName = "Image";
+        private static string ImageName = "Image";
         private EntityReference id;
+        private const string TARGET = "Target";
 
-        public PluginHelper(IServiceProvider serviceProvider, string defaultImageName = "Image")
+        public PluginHelper(IServiceProvider serviceProvider, string imageName = null)
         {
-            this.defaultImageName = defaultImageName;
-
+            ImageName = this.FallbackToDefaultName(imageName);
 
             this.serviceProvider = serviceProvider;
 
-            this.context = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
+            this.PluginExecutionContext = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
 
             //((IProxyTypesAssemblyProvider)this.context).ProxyTypesAssembly = typeof(Contact).Assembly;
         }
@@ -40,15 +40,13 @@ namespace Comentality
             }
         }
 
-        public EntityReference Id => id ?? (id = new EntityReference(this.context.PrimaryEntityName, this.context.PrimaryEntityId));
+        public EntityReference Id => id ?? (id = new EntityReference(this.PluginExecutionContext.PrimaryEntityName, this.PluginExecutionContext.PrimaryEntityId));
 
         /// <summary>
         /// Gets the name of the Plugin Message that is being processed by the event execution pipe.
         /// </summary>
-        public string MessageName
-        {
-            get { return this.context.MessageName; }
-        }
+        public string MessageName => this.PluginExecutionContext.MessageName;
+
 
         public void CheckRegistration(object registration)
         {
@@ -56,18 +54,20 @@ namespace Comentality
             // throw new NotImplementedException();
         }
 
+
         public Entity GetTarget()
         {
-            this.target = (Entity)this.context.InputParameters["Target"];
+            this.target = (Entity)this.PluginExecutionContext.InputParameters[TARGET];
 
             return this.target;
         }
 
+
         public T GetTarget<T>() where T : Entity
         {
-            if (!this.context.InputParameters.ContainsKey("Target"))
+            if (!this.PluginExecutionContext.InputParameters.ContainsKey(TARGET))
             {
-                throw new NoTargetException("Plugin has no target. Processed message might has no Target (ex. Delete).");
+                throw new InvalidPluginExecutionException("Plugin has no target. Processed message might has no Target (ex. Delete).");
             }
 
             this.target = this.GetTarget();
@@ -75,40 +75,43 @@ namespace Comentality
             return this.target.ToEntity<T>();
         }
 
-        public T GetPreImage<T>(string imageName = "Image") where T : Entity
+
+        public T GetPreImage<T>(string imageName = null) where T : Entity
         {
             imageName = this.FallbackToDefaultName(imageName);
 
-            if (this.context.PreEntityImages.Contains(imageName))
+            if (this.PluginExecutionContext.PreEntityImages.Contains(imageName))
             {
-                return this.context.PreEntityImages[imageName].ToEntity<T>();
+                return this.PluginExecutionContext.PreEntityImages[imageName].ToEntity<T>();
             }
 
-            throw new NoImageException(NoImageException.BuildMessage(imageName, 1));
+            throw new InvalidPluginExecutionException(BuildNoImageMessage(imageName, ImageType.PreImage));
         }
 
-        public T GetPostImage<T>(string imageName = "Image") where T : Entity
+
+        public T GetPostImage<T>(string imageName = null) where T : Entity
         {
             imageName = this.FallbackToDefaultName(imageName);
 
-            if (this.context.PostEntityImages.Contains(imageName))
+            if (this.PluginExecutionContext.PostEntityImages.Contains(imageName))
             {
-                return this.context.PostEntityImages[imageName].ToEntity<T>();
+                return this.PluginExecutionContext.PostEntityImages[imageName].ToEntity<T>();
             }
 
-            throw new NoImageException(NoImageException.BuildMessage(imageName, 0));
+            throw new InvalidPluginExecutionException(BuildNoImageMessage(imageName, ImageType.PostImage));
         }
+
 
         /// <summary>
         /// Returns types Pre Image or Target if this Pre Image is not available.
         /// </summary>
         /// <typeparam name="T">Type of Image.</typeparam>
         /// <returns>Returns Pre Image or Target.</returns>
-        public T GetPreImageOrTarget<T>(string imageName = "Image") where T : Entity
+        public T GetPreImageOrTarget<T>(string imageName = null) where T : Entity
         {
             imageName = this.FallbackToDefaultName(imageName);
 
-            if (context.PreEntityImages.ContainsKey(imageName))
+            if (PluginExecutionContext.PreEntityImages.ContainsKey(imageName))
             {
                 return this.GetPreImage<T>(imageName);
             }
@@ -116,16 +119,6 @@ namespace Comentality
             return this.GetTarget<T>();
         }
 
-        private CrmServices GetServices()
-        {
-            var serviceFactory = (IOrganizationServiceFactory)serviceProvider.GetService(typeof(IOrganizationServiceFactory));
-
-            var service = serviceFactory.CreateOrganizationService(context.UserId);
-
-            var t = (ITracingService)serviceProvider.GetService(typeof(ITracingService));
-
-            return GetServices(service, t);
-        }
 
         public static CrmServices GetServices(IOrganizationService service, ITracingService t)
         {
@@ -135,12 +128,71 @@ namespace Comentality
             return new CrmServices(service, xrmContext, t);
         }
 
+
+        public T GetPostOrPreImage<T>(string imageName = null) where T : Entity
+        {
+            imageName = this.FallbackToDefaultName(imageName);
+
+
+            if (PluginExecutionContext.PostEntityImages.ContainsKey(imageName))
+            {
+                return this.GetPostImage<T>(imageName);
+            }
+
+            if (PluginExecutionContext.PreEntityImages.ContainsKey(imageName))
+            {
+                return this.GetPreImage<T>(imageName);
+            }
+
+            return null;
+        }
+
+
+
+
+
+
+
+        private CrmServices GetServices()
+        {
+            var serviceFactory = (IOrganizationServiceFactory)serviceProvider.GetService(typeof(IOrganizationServiceFactory));
+
+            var service = serviceFactory.CreateOrganizationService(PluginExecutionContext.UserId);
+
+            var t = (ITracingService)serviceProvider.GetService(typeof(ITracingService));
+
+            return GetServices(service, t);
+        }
+
         private string FallbackToDefaultName(string imageName)
         {
             return
                 !string.IsNullOrEmpty(imageName)
                 ? imageName
-                : this.defaultImageName;
+                : PluginHelper.ImageName;
+        }
+
+        private static string BuildNoImageMessage(string imageName, ImageType imageType)
+        {
+            string message;
+
+            if (imageName == PluginHelper.DefaultImageName)
+            {
+                message = string.Format(
+                    $"Failed to read {imageType.Readable()} '{imageName}'. " +
+                    $"'{imageName}' is default name for an image. " +
+                    "If you want to use other name -- you should pass it as argument `PluginHelper.GetPreImage<T>(\"image_name\")` @ +" +
+                    "or as a second argument of `PluginHelper` constructor. " +
+                    $"Doublecheck that '{PluginHelper.ImageName}' image is registered, is {imageType.Readable()}, has this exact name.");
+            }
+            else
+            {
+                message = string.Format(
+                    $"Failed to read {imageType.Readable()} '{imageName}'. " +
+                    $"Doublecheck that '{imageName}' image is registered, is {imageType.Readable()}, has this exact name.");
+            }
+
+            return message;
         }
     }
 }

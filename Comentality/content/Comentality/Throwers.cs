@@ -1,23 +1,20 @@
 ﻿namespace Comentality
 {
     using System;
-    using Exceptions;
     using Microsoft.Xrm.Sdk;
 
-    public class Throwers
+    public static class Throwers
     {
-        public static void ThrowOnWrongReferenceType(EntityReference id, string typeName)
+        public static void IfReferenceTypeIsWrong(EntityReference id, string typeName)
         {
             if (id.LogicalName != typeName)
             {
-                var message =
-                    $"EntityReference of type {id.LogicalName} was used in the context where {typeName} is expected.";
-
-                throw new WrongEntityReferenceTypeException(message);
+                throw new InvalidPluginExecutionException(
+                    $"EntityReference of type {id.LogicalName} was used in the context where {typeName} is expected.");
             }
         }
 
-        public static void ThrowOnNullArgument(object argument, string argumentName)
+        public static void IfNullArgument(object argument, string argumentName)
         {
             if (argument == null)
             {
@@ -25,12 +22,22 @@
             }
         }
 
-        public static void ThrowOnNullOrEmptyArgument(string argument, string argumentName)
+        public static void IfNullOrEmptyArgument(string argument, string argumentName)
         {
             if (string.IsNullOrEmpty(argument))
             {
                 throw new ArgumentNullException(argumentName);
             }
+        }
+
+        public static void UserMisconduct(string format, params object[] args)
+        {
+            throw new InvalidPluginExecutionException(string.Format("UserMisconductException: " + format, args));
+        }
+
+        public static void UnexpectedNullValue(string format, params object[] args)
+        {
+            throw new InvalidPluginExecutionException(string.Format("UnexpectedNullValueException: " + format, args));
         }
     }
 }

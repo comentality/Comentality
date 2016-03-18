@@ -3,7 +3,7 @@
     using Microsoft.Xrm.Sdk;
     using CrmEarlyBound;
 
-    public sealed class CrmServices : ICrmServices
+    public class CrmServices : ICrmServices
     {
         public ITracingService T { get; set; }
 

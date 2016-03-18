@@ -1,5 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-using Comentality.Exceptions;
 using CrmEarlyBound;
 
 namespace Comentality.Utilities
@@ -92,17 +91,17 @@ namespace Comentality.Utilities
         /// <exception cref="ArgumentNullException">
         /// Thrown if <param name="isoCode">isoCode</param> is empty.
         /// </exception>
-        /// <exception cref="EntityNotFoundException">
+        /// <exception cref="InvalidPluginExecutionException">
         /// Thrown when there is no such Currency.</exception>
         public TransactionCurrency GetCurrency(string isoCode)
         {
-            Throwers.ThrowOnNullArgument(isoCode, "isoCode");
+            Throwers.IfNullArgument(isoCode, "isoCode");
 
             var cur = this.TransactionCurrencies.SingleOrDefault(x => x.ISOCurrencyCode == isoCode);
 
             if (cur == null)
             {
-                throw new EntityNotFoundException("Currency with ISO code " + " does not exist in CRM.");
+                throw new InvalidPluginExecutionException($"Currency with ISO code {isoCode} does not exist in CRM.");
             }
 
             return cur;
@@ -113,13 +112,15 @@ namespace Comentality.Utilities
         /// </summary>
         /// <param name="currencyId">Currency Id.</param>
         /// <returns>Returns Transaction Currency.</returns>
+        /// <exception cref="InvalidPluginExecutionException">
+        /// Thrown when there is no such Currency.</exception>
         public TransactionCurrency GetCurrency(Guid currencyId)
         {
             var cur = this.TransactionCurrencies.SingleOrDefault(x => x.TransactionCurrencyId == currencyId);
 
             if (cur == null)
             {
-                throw new EntityNotFoundException("Currency with ISO code " + " does not exist in CRM.");
+                throw new InvalidPluginExecutionException("Currency with ISO code " + " does not exist in CRM.");
             }
 
             return cur;
@@ -133,12 +134,12 @@ namespace Comentality.Utilities
 
             if (currency == null)
             {
-                throw new InvalidPluginExecutionException("No " + isoCode + " found in organization!");
+                throw new InvalidPluginExecutionException($"No {isoCode} found in organization!");
             }
 
             if (currency.ExchangeRate == null)
             {
-                throw new InvalidPluginExecutionException("No exchange rate set for " + isoCode + "!");
+                throw new InvalidPluginExecutionException($"No exchange rate set for {isoCode}!");
             }
 
             var exchangeRate = currency.ExchangeRate.Value;
@@ -153,7 +154,7 @@ namespace Comentality.Utilities
 
             if (currency.ExchangeRate == null)
             {
-                throw new UnexpectedNullValueException("No exchange rate set for " + currency.ISOCurrencyCode + "!");
+                Throwers.UnexpectedNullValue($"No exchange rate set for {currency.ISOCurrencyCode}!");
             }
 
             return currency.ExchangeRate.Value;

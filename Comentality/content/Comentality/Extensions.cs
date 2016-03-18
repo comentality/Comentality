@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xrm.Sdk;
 using System;
+using Comentality.content.Comentality;
 
 namespace Comentality
 {
@@ -17,6 +18,24 @@ namespace Comentality
         public static decimal ValueOrZero(this Money m)
         {
             return m?.Value ?? 0;
+        }
+
+        /// <summary>
+        /// String representation of image type.
+        /// </summary>
+        /// <param name="it"></param>
+        /// <returns></returns>
+        public static string Readable(this ImageType it)
+        {
+            if (it == ImageType.PreImage)
+            {
+                return "PreImage";
+            }
+            if (it == ImageType.PostImage)
+            {
+                return "PostImage";
+            }
+            throw new InvalidPluginExecutionException("Comentality.Extensions.Readable failed.");
         }
     }
 }

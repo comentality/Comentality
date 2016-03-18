@@ -8,8 +8,6 @@ namespace Comentality
     using System.Collections.Generic;
     using System.Linq;
 
-    using Exceptions;
-
     public class CommonRepository : ICommonRepository
     {
         public CommonRepository(ICrmServices services)
@@ -29,7 +27,20 @@ namespace Comentality
             this.services.Service.Execute(setStateRR);
         }
 
+        [Obsolete("Use `GetFullById<T>(EntityReference id)` if you want to get full entity.")]
         public T RetrieveById<T>(EntityReference id) where T : Entity
+        {
+            return GetFullById<T>(id);
+        }
+
+        /// <summary>
+        /// Get full entity by Id.
+        /// </summary>
+        /// <typeparam name="T">Type of entity to retrieve</typeparam>
+        /// <param name="id">Entity Id.</param>
+        /// <exception cref="InvalidPluginExecutionException">Exception if entity is not found.</exception>
+        /// <returns>Full entity value.</returns>
+        public T GetFullById<T>(EntityReference id) where T : Entity
         {
             var entity =
                 this.services.Context
@@ -39,8 +50,25 @@ namespace Comentality
 
             if (entity == null)
             {
-                throw new EntityNotFoundException();
+                throw new InvalidPluginExecutionException($"EntityNotFoundException: No {typeof(T)} with id {id} ");
             }
+
+            return entity;
+        }
+
+        /// <summary>
+        /// Constructs query to get this type of Entity by Id. You need to specify select statement and enumerate.
+        /// </summary>
+        /// <typeparam name="T">Enity Type.</typeparam>
+        /// <param name="id">Entity Id.</param>
+        /// <returns>Returns query to get this type of Entity by Id.</returns>
+        public IQueryable<T> GetById<T>(EntityReference id) where T : Entity
+        {
+            var entity =
+                this.services.Context
+                .CreateQuery<T>()
+                .Where(x =>
+                    x.Id == id.Id);
 
             return entity;
         }
@@ -59,7 +87,7 @@ namespace Comentality
 
         public EntityReference RetrievePriceListOrNull(string priceListName)
         {
-            Throwers.ThrowOnNullOrEmptyArgument(priceListName, "priceListName");
+            Throwers.IfNullOrEmptyArgument(priceListName, "priceListName");
 
             var priceListGuid =
                 this.services.Context
@@ -80,9 +108,9 @@ namespace Comentality
         {
             this.services.T.Trace("CreatePriceList...");
 
-            Throwers.ThrowOnNullOrEmptyArgument(priceListName, "priceListName");
-            Throwers.ThrowOnNullArgument(currencyId, "currencyId");
-            Throwers.ThrowOnWrongReferenceType(currencyId, TransactionCurrency.EntityLogicalName);
+            Throwers.IfNullOrEmptyArgument(priceListName, "priceListName");
+            Throwers.IfNullArgument(currencyId, "currencyId");
+            Throwers.IfReferenceTypeIsWrong(currencyId, TransactionCurrency.EntityLogicalName);
 
             var newPriceLevel =
                 new PriceLevel
@@ -100,11 +128,18 @@ namespace Comentality
 
         public EntityReference Create(Entity entity)
         {
-            Throwers.ThrowOnNullArgument(entity, "entity");
+            Throwers.IfNullArgument(entity, "entity");
 
             var id = this.services.Service.Create(entity);
 
             return new EntityReference(entity.LogicalName, id);
+        }
+
+        public void Update(Entity entity)
+        {
+            Throwers.IfNullArgument(entity, "entity");
+
+            this.services.Service.Update(entity);
         }
 
         public static List<ActivityParty> SpawnActivityParty(EntityReference managerId)
@@ -117,6 +152,88 @@ namespace Comentality
                 }
             };
         }
+
+        public void Trace(string format, params object[] args)
+        {
+            this.services.T?.Trace(format, args);
+        }
+
+#region Email
+        public void Email(string subject, string body, EntityReference regarding, EntityReference to, EntityReference from, Dictionary<string, byte[]> attachments = null)
+        {
+            Email(subject, body, regarding, new List<EntityReference> { to }, from, attachments);
+        }
+
+        public void Email(string subject, string body, EntityReference regarding, EntityReference to, EntityReference from, Dictionary<string, string> attachments = null)
+        {
+            Email(subject, body, regarding, new List<EntityReference> { to }, from, attachments);
+        }
+
+        public void Email(string subject, string body, EntityReference regarding, IEnumerable<EntityReference> to, EntityReference from, Dictionary<string, byte[]> attachments = null)
+        {
+            var atts = new Dictionary<string, string>();
+
+            if (attachments != null)
+            {
+                atts =
+                    attachments
+                    .ToDictionary(
+                        x => x.Key,
+                        x => Convert.ToBase64String(x.Value));
+            }
+
+            Email(subject, body, regarding, to , from, atts);
+        }
+
+        public void Email(string subject, string body, EntityReference regarding, IEnumerable<EntityReference> to, EntityReference from, Dictionary<string, string> attachments = null )
+        {
+            var email = new Email
+            {
+                Subject = subject,
+                Description = body,
+                From = new List<ActivityParty> {
+                    new ActivityParty {
+                        PartyId = from
+                    }
+                },
+                To = to.Select(x => new ActivityParty
+                {
+                    PartyId = x
+                }),
+                RegardingObjectId = regarding
+            };
+
+           var newId = this.services.Service.Create(email);
+
+            if (attachments != null)
+            {
+                var att =
+                    attachments.Select(x =>
+                    new ActivityMimeAttachment
+                    {
+                        ObjectId = new EntityReference(CrmEarlyBound.Email.EntityLogicalName, newId),
+                        ObjectTypeCode = CrmEarlyBound.Email.EntityLogicalName,
+                        Subject = x.Key,
+                        Body = x.Value,
+                        FileName = x.Key
+                    });
+
+                foreach (var attachment in att)
+                {
+                    this.services.Service.Create(attachment);
+                }
+            }
+
+            var sndEmail = new SendEmailRequest
+            {
+                EmailId = newId,
+                IssueSend = true,
+                TrackingToken = ""
+            };
+
+            this.services.Service.Execute(sndEmail);
+        }
+#endregion
 
         #region private
 
