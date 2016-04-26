@@ -75,6 +75,19 @@ namespace Comentality
             return this.target.ToEntity<T>();
         }
 
+        public T GetTargetOrNull<T>() where T : Entity
+        {
+            if (!this.PluginExecutionContext.InputParameters.ContainsKey(TARGET) ||
+                this.PluginExecutionContext.InputParameters[TARGET] is EntityReference)
+            {
+                return null;
+            }
+
+            this.target = this.GetTarget();
+
+            return this.target.ToEntity<T>();
+        }
+
 
         public T GetPreImage<T>(string imageName = null) where T : Entity
         {
